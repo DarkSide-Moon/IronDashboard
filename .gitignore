@@ -2,3 +2,4 @@ __pycache__/
 polymarket_data/
 download_polymarket_data.py
 .github/
+trigger_actions.py

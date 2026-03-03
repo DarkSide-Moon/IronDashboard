@@ -9,23 +9,185 @@ import streamlit as st
 
 from config import EVENTS
 
-# GitHub 数据仓库（公开）
 GITHUB_CSV = "https://raw.githubusercontent.com/DarkSide-Moon/IronDashboard-data/main/polymarket_data"
+CST = timezone(timedelta(hours=8))
+CARD_HEIGHT = 420
+
+COLORS = [
+    "#2563EB", "#E11D48", "#059669", "#D97706", "#7C3AED",
+    "#0891B2", "#EA580C", "#4F46E5", "#BE185D", "#0D9488",
+    "#B45309", "#6D28D9", "#DC2626", "#0284C7", "#9333EA",
+]
 
 # ── 页面配置 ──────────────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Iran Intelligence Dashboard",
+    page_title="伊朗情报看板",
     page_icon="🛰️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-CARD_HEIGHT = 560
-
 st.markdown("""
 <style>
-    .block-container { padding-top: 1rem; padding-bottom: 0.5rem; }
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    }
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0.5rem;
+        max-width: 1800px;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+    header[data-testid="stHeader"] {
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+    }
+    .stAppViewBlockContainer {
+        padding-top: 1rem;
+    }
+
+    /* ─── 标题区 ─── */
+    .header-area {
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid #E2E8F0;
+        margin-bottom: 1rem;
+    }
+    .header-zh {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: 0.02em;
+    }
+    .header-en {
+        font-size: 0.78rem;
+        color: #94A3B8;
+        font-weight: 500;
+        margin-top: 2px;
+        letter-spacing: 0.01em;
+    }
+
+    /* ─── 卡片容器 ─── */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        background: #FFFFFF !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02) !important;
+        transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        border-color: #CBD5E1 !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04) !important;
+    }
+
+    /* ─── 刷新按钮 ─── */
+    div[data-testid="stButton"] > button {
+        background: linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%);
+        border: 1.5px solid #BFDBFE;
+        border-radius: 10px;
+        color: #2563EB;
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 8px 18px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        letter-spacing: 0.03em;
+        box-shadow: 0 1px 3px rgba(37,99,235,0.08);
+    }
+    div[data-testid="stButton"] > button:hover {
+        background: linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%);
+        border-color: #93C5FD;
+        color: #1D4ED8;
+        box-shadow: 0 4px 12px rgba(37,99,235,0.15);
+        transform: translateY(-1px);
+    }
+    div[data-testid="stButton"] > button:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 3px rgba(37,99,235,0.08);
+    }
+
+    /* ─── 卡片内文字 ─── */
+    .card-title {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1E293B;
+        line-height: 1.3;
+    }
+    .card-metric-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 2px 0 0 0;
+    }
+    .card-delta-row {
+        display: flex;
+        gap: 4px;
+        margin: 4px 0 0 0;
+        flex-wrap: wrap;
+    }
+    .card-val {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: -0.03em;
+    }
+    .card-delta {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+    .card-delta.up {
+        color: #DC2626;
+        background: #FEF2F2;
+    }
+    .card-delta.down {
+        color: #16A34A;
+        background: #F0FDF4;
+    }
+    .card-delta.flat {
+        color: #64748B;
+        background: #F1F5F9;
+    }
+    .card-label {
+        font-size: 0.68rem;
+        color: #2563EB;
+        font-weight: 600;
+    }
+    .card-label-inline {
+        font-size: 0.72rem;
+        color: #2563EB;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+    }
+    .card-updated {
+        font-size: 0.62rem;
+        color: #CBD5E1;
+        margin-top: 2px;
+    }
+
+    /* ─── 底部 ─── */
+    .footer-line {
+        text-align: center;
+        padding: 10px 0 0;
+        margin-top: 0.8rem;
+        border-top: 1px solid #F1F5F9;
+    }
+    .footer-line span {
+        font-size: 0.7rem;
+        color: #94A3B8;
+    }
+
+    /* ─── 隐藏默认元素 ─── */
+    #MainMenu {visibility: hidden;}
+    div[data-testid="stDecoration"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,7 +195,6 @@ st.markdown("""
 
 @st.cache_data(ttl=590)
 def load_event_data(slug: str) -> pd.DataFrame:
-    """从 GitHub 数据仓库拉取 CSV，缓存 ~5 分钟。"""
     url = f"{GITHUB_CSV}/{slug}.csv"
     try:
         resp = requests.get(url, timeout=15)
@@ -42,19 +203,58 @@ def load_event_data(slug: str) -> pd.DataFrame:
     except Exception:
         return pd.DataFrame()
 
-# ── 图表构建 ──────────────────────────────────────────────────────────────────
+# ── 工具函数 ──────────────────────────────────────────────────────────────────
 
-def build_chart(df: pd.DataFrame, selected_cols: list[str],
-                labels: dict[str, str], slug: str = "") -> go.Figure:
+def calc_delta(df, col, minutes=60):
+    if len(df) < 2:
+        return 0.0
+    now_val = df[col].iloc[-1]
+    cutoff = df["datetime"].iloc[-1] - pd.Timedelta(minutes=minutes)
+    older = df[df["datetime"] <= cutoff]
+    old_val = older[col].iloc[-1] if not older.empty else df[col].iloc[0]
+    return (now_val - old_val) * 100
+
+
+def single_delta(val, tag):
+    if abs(val) < 0.05:
+        return f'<span class="card-delta flat">{tag} —</span>'
+    if val > 0:
+        return f'<span class="card-delta up">{tag} ▲+{val:.1f}%</span>'
+    return f'<span class="card-delta down">{tag} ▼{val:.1f}%</span>'
+
+
+def delta_html(df, col):
+    d15 = calc_delta(df, col, minutes=15)
+    d1h = calc_delta(df, col, minutes=60)
+    d6h = calc_delta(df, col, minutes=360)
+    return f'{single_delta(d15, "15m")} {single_delta(d1h, "1h")} {single_delta(d6h, "6h")}'
+
+
+def data_freshness(df):
+    """返回数据最新时间距现在多久（北京时间）"""
+    last = df["datetime"].iloc[-1]
+    now = datetime.now(CST).replace(tzinfo=None)
+    diff = now - last
+    mins = int(diff.total_seconds() / 60)
+    if mins < 0:
+        return "刚刚更新"
+    if mins < 60:
+        return f"{mins} 分钟前"
+    hours = mins // 60
+    if hours < 24:
+        return f"{hours} 小时前"
+    return f"{diff.days} 天前"
+
+# ── 图表 ─────────────────────────────────────────────────────────────────────
+
+def build_chart(df, selected_cols, labels, slug=""):
     fig = go.Figure()
-    for col in selected_cols:
+    for i, col in enumerate(selected_cols):
         label = labels.get(col, col)
         fig.add_trace(go.Scatter(
-            x=df["datetime"],
-            y=df[col] * 100,
-            name=label,
-            mode="lines",
-            line=dict(width=2.2),
+            x=df["datetime"], y=df[col] * 100,
+            name=label, mode="lines",
+            line=dict(width=2.5, color=COLORS[i % len(COLORS)]),
             hovertemplate="%{y:.1f}%<extra>" + label + "</extra>",
         ))
 
@@ -63,60 +263,63 @@ def build_chart(df: pd.DataFrame, selected_cols: list[str],
     y_max = min(vals.max().max() + 5, 105)
 
     fig.update_layout(
-        template="plotly_dark",
-        height=460,
-        margin=dict(l=0, r=0, t=40, b=0),
+        height=270,
+        margin=dict(l=0, r=0, t=26, b=0),
         yaxis=dict(
-            range=[y_min, y_max],
-            tickformat=".0f",
-            ticksuffix="%",
-            title=None,
-            gridcolor="rgba(255,255,255,0.07)",
+            range=[y_min, y_max], tickformat=".0f", ticksuffix="%",
+            title=None, gridcolor="#F1F5F9", zeroline=False,
+            tickfont=dict(size=10, color="#94A3B8"),
         ),
         xaxis=dict(
-            title=None,
-            gridcolor="rgba(255,255,255,0.04)",
+            title=None, gridcolor="#F8FAFC",
             rangeslider=dict(visible=True, thickness=0.05),
+            tickfont=dict(size=10, color="#94A3B8"),
         ),
         hovermode="x unified",
+        hoverlabel=dict(bgcolor="#1E293B", bordercolor="#334155",
+                        font=dict(size=12, color="#F1F5F9")),
         showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.0,
-            xanchor="left",
-            x=0,
-            font=dict(size=12),
-            bgcolor="rgba(0,0,0,0)",
-        ),
+        legend=dict(orientation="h", yanchor="bottom", y=1.0, xanchor="left", x=0,
+                    font=dict(size=11, color="#64748B"), bgcolor="rgba(0,0,0,0)"),
         uirevision=slug,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#64748B"),
     )
     return fig
 
-# ── 主标题 ────────────────────────────────────────────────────────────────────
+# ── 头部 ─────────────────────────────────────────────────────────────────────
 
-st.markdown("# 🛰️ Iran Intelligence Dashboard")
-st.caption("基于 Polymarket 的伊朗相关事件概率追踪")
-st.divider()
+hdr_left, hdr_right = st.columns([0.9, 0.1])
+with hdr_left:
+    st.markdown("""
+    <div class="header-area">
+        <div class="header-zh">🛰️ 伊朗情报看板</div>
+        <div class="header-en">Iran Intelligence Dashboard · Polymarket real-time probability tracking</div>
+    </div>
+    """, unsafe_allow_html=True)
+with hdr_right:
+    if st.button("刷新数据", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
-# ── 图表渲染（Fragment，5 分钟自动刷新） ─────────────────────────────────────
+# ── 主渲染 ───────────────────────────────────────────────────────────────────
 
 @st.fragment(run_every="10m")
-def render_all_charts() -> None:
+def render() -> None:
     rows = [EVENTS[i:i + 3] for i in range(0, len(EVENTS), 3)]
 
     for row_events in rows:
-        grid_cols = st.columns(3, gap="medium")
-        for grid_col, event in zip(grid_cols, row_events):
-            with grid_col:
+        cols = st.columns(3, gap="medium")
+        for col, event in zip(cols, row_events):
+            with col:
                 with st.container(border=True, height=CARD_HEIGHT):
                     df = load_event_data(event["slug"])
                     labels = event["labels"]
 
                     if df.empty:
-                        st.markdown(f"**{event['title']}**")
+                        st.markdown(f'<div class="card-title">{event["title"]}</div>',
+                                    unsafe_allow_html=True)
                         st.warning("暂无数据", icon="⚠️")
                         continue
 
@@ -124,21 +327,38 @@ def render_all_charts() -> None:
                     is_single = len(value_cols) == 1
 
                     if is_single:
-                        st.markdown(f"**{event['title']}**")
                         selected = value_cols
                     else:
                         latest_val = df[value_cols].iloc[-1]
                         top_col = latest_val.idxmax()
+                        selected = st.session_state.get(f"sel_{event['slug']}", [top_col])
 
-                        title_col, pop_col = st.columns([0.85, 0.15])
-                        with title_col:
-                            st.markdown(f"**{event['title']}**")
-                        with pop_col:
-                            with st.popover("⚙️ 筛选", use_container_width=True):
-                                st.caption("选择要展示的结果线：")
+                    disp_col = selected[0] if selected else value_cols[0]
+                    disp_val = df[disp_col].iloc[-1] * 100
+                    disp_label = labels.get(disp_col, disp_col)
+                    delta_str = delta_html(df, disp_col)
+                    freshness = data_freshness(df)
+
+                    card_html = f"""
+                        <div class="card-title">{event["title"]}</div>
+                        <div class="card-metric-row">
+                            <span class="card-val">{disp_val:.1f}%</span>
+                            <span class="card-label-inline">{disp_label}</span>
+                        </div>
+                        <div class="card-delta-row">{delta_str}</div>
+                        <div class="card-updated">{freshness}</div>
+                    """
+                    if is_single:
+                        st.markdown(card_html, unsafe_allow_html=True)
+                    else:
+                        tc, pc = st.columns([0.88, 0.12])
+                        with tc:
+                            st.markdown(card_html, unsafe_allow_html=True)
+                        with pc:
+                            with st.popover("⚙️", use_container_width=True):
+                                st.caption("选择展示的结果：")
                                 selected = st.multiselect(
-                                    "选择展示的结果",
-                                    options=value_cols,
+                                    "选择展示的结果", options=value_cols,
                                     default=[top_col],
                                     format_func=lambda x, lb=labels: lb.get(x, x),
                                     key=f"sel_{event['slug']}",
@@ -152,8 +372,12 @@ def render_all_charts() -> None:
                     fig = build_chart(df, selected, labels, slug=event["slug"])
                     st.plotly_chart(fig, use_container_width=True)
 
-    now_cst = datetime.now(timezone(timedelta(hours=8)))
-    st.caption(f"上次刷新：{now_cst.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
+    now_cst = datetime.now(CST)
+    st.markdown(f"""
+    <div class="footer-line">
+        <span>上次更新：{now_cst.strftime('%Y-%m-%d %H:%M:%S')} 北京时间</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-render_all_charts()
+render()
