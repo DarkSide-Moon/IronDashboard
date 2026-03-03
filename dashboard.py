@@ -168,9 +168,10 @@ st.markdown("""
         max-width: 180px;
     }
     .card-updated {
-        font-size: 0.62rem;
-        color: #CBD5E1;
-        margin-top: 2px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: #94A3B8;
+        margin-top: 4px;
     }
 
     /* ─── 底部 ─── */
@@ -227,23 +228,13 @@ def delta_html(df, col):
     d15 = calc_delta(df, col, minutes=15)
     d1h = calc_delta(df, col, minutes=60)
     d6h = calc_delta(df, col, minutes=360)
-    return f'{single_delta(d15, "15m")} {single_delta(d1h, "1h")} {single_delta(d6h, "6h")}'
+    d24h = calc_delta(df, col, minutes=1440)
+    return f'{single_delta(d15, "15m")} {single_delta(d1h, "1h")} {single_delta(d6h, "6h")} {single_delta(d24h, "24h")}'
 
 
 def data_freshness(df):
-    """返回数据最新时间距现在多久（北京时间）"""
     last = df["datetime"].iloc[-1]
-    now = datetime.now(CST).replace(tzinfo=None)
-    diff = now - last
-    mins = int(diff.total_seconds() / 60)
-    if mins < 0:
-        return "刚刚更新"
-    if mins < 60:
-        return f"{mins} 分钟前"
-    hours = mins // 60
-    if hours < 24:
-        return f"{hours} 小时前"
-    return f"{diff.days} 天前"
+    return last.strftime("%m-%d %H:%M")
 
 # ── 图表 ─────────────────────────────────────────────────────────────────────
 
@@ -267,13 +258,15 @@ def build_chart(df, selected_cols, labels, slug=""):
         margin=dict(l=0, r=0, t=26, b=0),
         yaxis=dict(
             range=[y_min, y_max], tickformat=".0f", ticksuffix="%",
-            title=None, gridcolor="#F1F5F9", zeroline=False,
-            tickfont=dict(size=10, color="#94A3B8"),
+            title=None, gridcolor="#E2E8F0", zeroline=False,
+            tickfont=dict(size=11, color="#475569"),
+            linecolor="#CBD5E1", linewidth=1,
         ),
         xaxis=dict(
-            title=None, gridcolor="#F8FAFC",
+            title=None, gridcolor="#EFF2F7",
             rangeslider=dict(visible=True, thickness=0.05),
-            tickfont=dict(size=10, color="#94A3B8"),
+            tickfont=dict(size=11, color="#475569"),
+            linecolor="#CBD5E1", linewidth=1,
         ),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="#1E293B", bordercolor="#334155",
@@ -346,7 +339,7 @@ def render() -> None:
                             <span class="card-label-inline">{disp_label}</span>
                         </div>
                         <div class="card-delta-row">{delta_str}</div>
-                        <div class="card-updated">{freshness}</div>
+                        <div class="card-updated">最后更新 {freshness}</div>
                     """
                     if is_single:
                         st.markdown(card_html, unsafe_allow_html=True)
