@@ -21,6 +21,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+CARD_HEIGHT = 560
+
 st.markdown("""
 <style>
     .block-container { padding-top: 1rem; padding-bottom: 0.5rem; }
@@ -60,14 +62,10 @@ def build_chart(df: pd.DataFrame, selected_cols: list[str],
     y_min = max(vals.min().min() - 5, 0)
     y_max = min(vals.max().max() + 5, 105)
 
-    n_traces = len(selected_cols)
-    legend_rows = (n_traces + 2) // 3
-    legend_h = max(legend_rows * 22, 26)
-
     fig.update_layout(
         template="plotly_dark",
-        height=430 + legend_h,
-        margin=dict(l=0, r=0, t=legend_h + 4, b=0),
+        height=460,
+        margin=dict(l=0, r=0, t=40, b=0),
         yaxis=dict(
             range=[y_min, y_max],
             tickformat=".0f",
@@ -113,7 +111,7 @@ def render_all_charts() -> None:
         grid_cols = st.columns(3, gap="medium")
         for grid_col, event in zip(grid_cols, row_events):
             with grid_col:
-                with st.container(border=True):
+                with st.container(border=True, height=CARD_HEIGHT):
                     df = load_event_data(event["slug"])
                     labels = event["labels"]
 
