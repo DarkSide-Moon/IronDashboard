@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import io
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -152,7 +152,8 @@ def render_all_charts() -> None:
                     fig = build_chart(df, selected, labels, slug=event["slug"])
                     st.plotly_chart(fig, use_container_width=True)
 
-    st.caption(f"上次刷新：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    now_cst = datetime.now(timezone(timedelta(hours=8)))
+    st.caption(f"上次刷新：{now_cst.strftime('%Y-%m-%d %H:%M:%S')} (北京时间)")
 
 
 render_all_charts()
