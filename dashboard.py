@@ -454,11 +454,11 @@ def render() -> None:
                     else:
                         latest_val = df[value_cols].iloc[-1]
                         top_col = latest_val.idxmax()
-                        sel_key = f"sel_{event['slug']}"
-                        if sel_key not in st.session_state:
-                            st.session_state[sel_key] = [top_col]
-                        selected = st.session_state[sel_key]
+                        save_key = f"pref_{event['slug']}"
+                        if save_key not in st.session_state:
+                            st.session_state[save_key] = [top_col]
 
+                    selected = st.session_state.get(f"pref_{event['slug']}", value_cols[:1]) if not is_single else value_cols
                     disp_col = selected[0] if selected else value_cols[0]
                     disp_val = df[disp_col].iloc[-1] * 100
                     disp_label = labels.get(disp_col, disp_col)
@@ -485,10 +485,11 @@ def render() -> None:
                                 st.caption("选择展示的结果：")
                                 selected = st.multiselect(
                                     "选择展示的结果", options=value_cols,
+                                    default=st.session_state[save_key],
                                     format_func=lambda x, lb=labels: lb.get(x, x),
-                                    key=sel_key,
                                     label_visibility="collapsed",
                                 )
+                                st.session_state[save_key] = selected if selected else st.session_state[save_key]
 
                     if not selected:
                         st.info("请至少选择一个选项")
