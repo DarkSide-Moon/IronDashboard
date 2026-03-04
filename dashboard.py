@@ -174,6 +174,74 @@ st.markdown("""
         margin-top: 4px;
     }
 
+    /* ─── 变动榜 ─── */
+    .movers-wrap {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 18px 12px;
+        margin-bottom: 1.2rem;
+    }
+    .movers-header {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #475569;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    .movers-col-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #64748B;
+        letter-spacing: 0.04em;
+        margin-bottom: 6px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #E2E8F0;
+    }
+    .mover-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .mover-item:last-child { border-bottom: none; }
+    .mover-rank {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #CBD5E1;
+        width: 14px;
+        flex-shrink: 0;
+    }
+    .mover-info { flex: 1; min-width: 0; }
+    .mover-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #1E293B;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mover-label {
+        font-size: 0.74rem;
+        color: #94A3B8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mover-delta {
+        font-size: 0.8rem;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .mover-delta.up { color: #DC2626; background: #FEF2F2; }
+    .mover-delta.down { color: #16A34A; background: #F0FDF4; }
+    .mover-delta.flat { color: #64748B; background: #F1F5F9; }
+
     /* ─── 底部 ─── */
     .footer-line {
         text-align: center;
@@ -236,6 +304,44 @@ def data_freshness(df):
     last = df["datetime"].iloc[-1]
     return last.strftime("%m-%d %H:%M")
 
+
+def get_top_movers(minutes, top_n=3):
+    results = []
+    for event in EVENTS:
+        df = load_event_data(event["slug"])
+        if df.empty:
+            continue
+        labels = event["labels"]
+        value_cols = [c for c in df.columns if c != "datetime"]
+        for col in value_cols:
+            delta = calc_delta(df, col, minutes=minutes)
+            results.append({
+                "title": event["title"],
+                "label": labels.get(col, col),
+                "delta": delta,
+            })
+    results.sort(key=lambda x: abs(x["delta"]), reverse=True)
+    return results[:top_n]
+
+
+def mover_item_html(rank, item):
+    d = item["delta"]
+    if abs(d) < 0.05:
+        badge = '<span class="mover-delta flat">—</span>'
+    elif d > 0:
+        badge = f'<span class="mover-delta up">▲+{d:.1f}%</span>'
+    else:
+        badge = f'<span class="mover-delta down">▼{d:.1f}%</span>'
+    return f"""
+    <div class="mover-item">
+        <span class="mover-rank">{rank}</span>
+        <div class="mover-info">
+            <div class="mover-name">{item["title"]}</div>
+            <div class="mover-label">{item["label"]}</div>
+        </div>
+        {badge}
+    </div>"""
+
 # ── 图表 ─────────────────────────────────────────────────────────────────────
 
 def build_chart(df, selected_cols, labels, slug=""):
@@ -253,6 +359,9 @@ def build_chart(df, selected_cols, labels, slug=""):
     y_min = max(vals.min().min() - 5, 0)
     y_max = min(vals.max().max() + 5, 105)
 
+    x_end = df["datetime"].iloc[-1]
+    x_start = x_end - pd.Timedelta(days=3)
+
     fig.update_layout(
         height=270,
         margin=dict(l=0, r=0, t=26, b=0),
@@ -264,6 +373,7 @@ def build_chart(df, selected_cols, labels, slug=""):
         ),
         xaxis=dict(
             title=None, gridcolor="#EFF2F7",
+            range=[x_start, x_end],
             rangeslider=dict(visible=True, thickness=0.05),
             tickfont=dict(size=11, color="#475569"),
             linecolor="#CBD5E1", linewidth=1,
@@ -300,6 +410,26 @@ with hdr_right:
 
 @st.fragment(run_every="10m")
 def render() -> None:
+    # ── 变动榜 ────────────────────────────────────────────────────────────────
+    windows = [("15m", 15), ("1h", 60), ("6h", 360), ("24h", 1440)]
+    window_labels = {"15m": "15 分钟", "1h": "1 小时", "6h": "6 小时", "24h": "24 小时"}
+    movers_cols = st.columns(4, gap="medium")
+    col_htmls = []
+    for tag, mins in windows:
+        top = get_top_movers(mins)
+        items_html = "".join(mover_item_html(i + 1, item) for i, item in enumerate(top))
+        col_htmls.append(f'<div class="movers-col-title">{window_labels[tag]} 变动最大</div>{items_html}')
+
+    st.markdown(f"""
+    <div class="movers-wrap">
+        <div class="movers-header">概率变动榜 · Top 3</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+            {''.join(f'<div>{h}</div>' for h in col_htmls)}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── 事件卡片 ──────────────────────────────────────────────────────────────
     rows = [EVENTS[i:i + 3] for i in range(0, len(EVENTS), 3)]
 
     for row_events in rows:
