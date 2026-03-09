@@ -10,6 +10,7 @@ import streamlit as st
 from config import EVENTS
 
 GITHUB_CSV = "https://raw.githubusercontent.com/DarkSide-Moon/IronDashboard-data/main/polymarket_data"
+EXCEL_PATH = "伊朗冲突相关日度数据.xlsx"
 CST = timezone(timedelta(hours=8))
 CARD_HEIGHT = 420
 
@@ -242,6 +243,28 @@ st.markdown("""
     .mover-delta.down { color: #16A34A; background: #F0FDF4; }
     .mover-delta.flat { color: #64748B; background: #F1F5F9; }
 
+    /* ─── 版块标题 ─── */
+    .section-header {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        padding: 0.6rem 0 0.6rem;
+        border-bottom: 2px solid #E2E8F0;
+        margin: 1.4rem 0 1rem;
+    }
+    .section-header-zh {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: 0.02em;
+    }
+    .section-header-en {
+        font-size: 0.72rem;
+        color: #94A3B8;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+    }
+
     /* ─── 底部 ─── */
     .footer-line {
         text-align: center;
@@ -342,6 +365,91 @@ def mover_item_html(rank, item):
         {badge}
     </div>"""
 
+# ── Bloomberg 数据 ────────────────────────────────────────────────────────────
+
+def load_bloomberg_data():
+    try:
+        xl = pd.ExcelFile(EXCEL_PATH)
+        result = {}
+        for sheet in xl.sheet_names:
+            df = pd.read_excel(xl, sheet_name=sheet, header=0)
+            df.columns = ["date", sheet]
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.sort_values("date").reset_index(drop=True)
+            result[sheet] = df
+        return result
+    except Exception:
+        return {}
+
+
+def calc_bbg_delta(df, col, days):
+    """找 days 天前最近的有效数据点，计算与最新值的变化量和变化率。"""
+    if len(df) < 2:
+        return None, None
+    latest_val = df[col].iloc[-1]
+    latest_date = df["date"].iloc[-1]
+    cutoff = latest_date - pd.Timedelta(days=days)
+    older = df[df["date"] <= cutoff]
+    if older.empty:
+        return None, None
+    old_val = older[col].iloc[-1]
+    if old_val == 0:
+        return None, None
+    chg = latest_val - old_val
+    pct = chg / abs(old_val) * 100
+    return chg, pct
+
+
+def bbg_delta_html(chg, pct, tag):
+    if chg is None:
+        return f'<span class="card-delta flat">{tag} —</span>'
+    if abs(pct) < 0.01:
+        return f'<span class="card-delta flat">{tag} —</span>'
+    if chg > 0:
+        return f'<span class="card-delta up">{tag} ▲+{pct:.1f}%</span>'
+    return f'<span class="card-delta down">{tag} ▼{pct:.1f}%</span>'
+
+
+def build_bloomberg_chart(df, col_name):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df["date"], y=df[col_name],
+        name=col_name, mode="lines",
+        line=dict(width=2.5, color=COLORS[0]),
+        hovertemplate="%{y:.4g}<extra>" + col_name + "</extra>",
+    ))
+
+    vals = df[col_name].dropna()
+    y_min = vals.min() - (vals.max() - vals.min()) * 0.08
+    y_max = vals.max() + (vals.max() - vals.min()) * 0.08
+
+    fig.update_layout(
+        height=270,
+        margin=dict(l=0, r=0, t=26, b=0),
+        yaxis=dict(
+            range=[y_min, y_max], title=None,
+            gridcolor="#E2E8F0", zeroline=False,
+            tickfont=dict(size=11, color="#475569"),
+            linecolor="#CBD5E1", linewidth=1,
+        ),
+        xaxis=dict(
+            title=None, gridcolor="#EFF2F7",
+            rangeslider=dict(visible=True, thickness=0.05),
+            tickfont=dict(size=11, color="#475569"),
+            linecolor="#CBD5E1", linewidth=1,
+        ),
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="#1E293B", bordercolor="#334155",
+                        font=dict(size=12, color="#F1F5F9")),
+        showlegend=False,
+        uirevision=col_name,
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#64748B"),
+    )
+    return fig
+
+
 # ── 图表 ─────────────────────────────────────────────────────────────────────
 
 def build_chart(df, selected_cols, labels, slug=""):
@@ -398,13 +506,22 @@ with hdr_left:
     st.markdown("""
     <div class="header-area">
         <div class="header-zh">🛰️ 伊朗情报看板</div>
-        <div class="header-en">Iran Intelligence Dashboard · Polymarket real-time probability tracking</div>
+        <div class="header-en">Iran Intelligence Dashboard · Real-time probability & macro tracking</div>
     </div>
     """, unsafe_allow_html=True)
 with hdr_right:
     if st.button("刷新数据", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+
+# ── Polymarket 版块 ──────────────────────────────────────────────────────────
+
+st.markdown("""
+<div class="section-header">
+    <span class="section-header-zh">Polymarket 热点事件跟踪</span>
+    <span class="section-header-en">Real-time prediction market probabilities</span>
+</div>
+""", unsafe_allow_html=True)
 
 # ── 主渲染 ───────────────────────────────────────────────────────────────────
 
@@ -507,3 +624,45 @@ def render() -> None:
 
 
 render()
+
+# ── 彭博数据版块 ─────────────────────────────────────────────────────────────
+
+st.markdown("""
+<div class="section-header">
+    <span class="section-header-zh">彭博热点伊朗数据跟踪</span>
+    <span class="section-header-en">Bloomberg macro indicators related to Iran</span>
+</div>
+""", unsafe_allow_html=True)
+
+bloomberg_data = load_bloomberg_data()
+
+if not bloomberg_data:
+    st.warning("未找到 Excel 数据文件，请确认 `伊朗冲突相关日度数据.xlsx` 已上传至仓库根目录。", icon="⚠️")
+else:
+    sheet_names = list(bloomberg_data.keys())
+    bbg_rows = [sheet_names[i:i + 3] for i in range(0, len(sheet_names), 3)]
+    for row_sheets in bbg_rows:
+        cols = st.columns(3, gap="medium")
+        for col, sheet in zip(cols, row_sheets):
+            with col:
+                with st.container(border=True, height=CARD_HEIGHT):
+                    df = bloomberg_data[sheet]
+                    latest_val = df[sheet].iloc[-1]
+                    latest_date = df["date"].iloc[-1].strftime("%m-%d")
+                    chg_1w, pct_1w = calc_bbg_delta(df, sheet, 7)
+                    chg_1m, pct_1m = calc_bbg_delta(df, sheet, 30)
+                    delta_str = (
+                        bbg_delta_html(chg_1w, pct_1w, "1W")
+                        + " "
+                        + bbg_delta_html(chg_1m, pct_1m, "1M")
+                    )
+                    st.markdown(f"""
+                        <div class="card-title">{sheet}</div>
+                        <div class="card-metric-row">
+                            <span class="card-val">{latest_val:.4g}</span>
+                        </div>
+                        <div class="card-delta-row">{delta_str}</div>
+                        <div class="card-updated">最后更新 {latest_date}</div>
+                    """, unsafe_allow_html=True)
+                    fig = build_bloomberg_chart(df, sheet)
+                    st.plotly_chart(fig, use_container_width=True)
