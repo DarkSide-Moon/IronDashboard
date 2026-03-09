@@ -416,7 +416,7 @@ def build_bloomberg_chart(df, col_name):
     fig.add_trace(go.Scatter(
         x=df["date"], y=df[col_name],
         name=col_name, mode="lines",
-        line=dict(width=2.5, color=COLORS[0]),
+        line=dict(width=1.5, color=COLORS[0]),
         hovertemplate="%{y:.4g}<extra>" + col_name + "</extra>",
     ))
 
@@ -460,7 +460,7 @@ def build_chart(df, selected_cols, labels, slug=""):
         fig.add_trace(go.Scatter(
             x=df["datetime"], y=df[col] * 100,
             name=label, mode="lines",
-            line=dict(width=2.5, color=COLORS[i % len(COLORS)]),
+            line=dict(width=1.5, color=COLORS[i % len(COLORS)]),
             hovertemplate="%{y:.1f}%<extra>" + label + "</extra>",
         ))
 
