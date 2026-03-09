@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import io
+import os
 from datetime import datetime, timezone, timedelta
 
 import pandas as pd
@@ -10,7 +11,7 @@ import streamlit as st
 from config import EVENTS
 
 GITHUB_CSV = "https://raw.githubusercontent.com/DarkSide-Moon/IronDashboard-data/main/polymarket_data"
-EXCEL_PATH = "伊朗冲突相关日度数据.xlsx"
+EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "伊朗冲突相关日度数据.xlsx")
 CST = timezone(timedelta(hours=8))
 CARD_HEIGHT = 420
 
