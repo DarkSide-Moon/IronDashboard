@@ -438,6 +438,7 @@ def build_bloomberg_chart(df, col_name):
             rangeslider=dict(visible=True, thickness=0.05),
             tickfont=dict(size=11, color="#475569"),
             linecolor="#CBD5E1", linewidth=1,
+            hoverformat="%Y-%m-%d",
         ),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="#1E293B", bordercolor="#334155",
