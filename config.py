@@ -83,11 +83,6 @@ EVENTS = [
         },
     },
     {
-        "slug": "us-seizes-an-iran-linked-oil-tanker-by-march-7",
-        "title": "US seizes an Iran-linked oil tanker by March 7?",
-        "labels": {"Yes": "Yes"},
-    },
-    {
         "slug": "march-inflation-us-annual",
         "title": "March Inflation US - Annual",
         "labels": {
